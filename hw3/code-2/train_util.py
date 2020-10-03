@@ -141,6 +141,70 @@ def finetune_after_prune(net, epochs, batch_size, lr, reg, log_every_n=50):
 
     for epoch in range(start_epoch, epochs):
         # Your code: Setup the retraining process.
+        ###
+        print('\nEpoch: %d' % epoch)
+        net.train()
+        train_loss = 0
+        correct = 0
+        total = 0
+        for batch_idx, (inputs, targets) in enumerate(trainloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            optimizer.zero_grad()
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
+            loss.backward()
+
+            for n, m in net.named_modules():
+                if isinstance(m, PrunedConv):
+                    m.conv.weight.grad.data.mul_(m.mask)
+                elif isinstance(m, PruneLinear):
+                    m.linear.weight.grad.data.mul_(m.mask)
+                else:
+                    pass
+
+            optimizer.step()
+            train_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+            global_steps += 1
+
+            if global_steps % log_every_n == 0:
+                end = time.time()
+                num_examples_per_second = log_every_n * batch_size / (end - start)
+                print("[Step=%d]\tLoss=%.4f\tacc=%.4f\t%.1f examples/second"
+                      % (global_steps, train_loss / (batch_idx + 1), (correct / total), num_examples_per_second))
+                start = time.time()
+
+
+        """
+        Start the testing code.
+        """
+        net.eval()
+        test_loss = 0
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for batch_idx, (inputs, targets) in enumerate(testloader):
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = net(inputs)
+                loss = criterion(outputs, targets)
+
+                test_loss += loss.item()
+                _, predicted = outputs.max(1)
+                total += targets.size(0)
+                correct += predicted.eq(targets).sum().item()
+        num_val_steps = len(testloader)
+        val_acc = correct / total
+        print("Test Loss=%.4f, Test acc=%.4f" % (test_loss / (num_val_steps), val_acc))
+        
+        if val_acc > best_acc:
+            best_acc = val_acc
+            print("Saving...")
+            torch.save(net.state_dict(), "net_after_pruning.pt")
+
+        
+        ###
         pass
     
 def test(net):

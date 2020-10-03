@@ -6,6 +6,7 @@ import numpy as np
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+# device = "cpu" 
 class PruneLinear(nn.Module):
     def __init__(self, in_features, out_features):
         super(PruneLinear, self).__init__()
@@ -34,19 +35,18 @@ class PruneLinear(nn.Module):
         np_weight = self.linear.weight.data.cpu().numpy()
         flattened_weights = np.abs(np_weight.flatten())
         # Generate the pruning threshold according to 'prune by percentage'. (Your code: 1 Line) 
-        thresh = np.partition(flattened_weights, len(flattened_weights)*(q/100))[len(flattened_weights)*(q/100)]
+        thresh = np.partition(flattened_weights, int(len(flattened_weights)*(q/100)))[int(len(flattened_weights)*(q/100))]
         # Generate a mask to determine which weights should be pruned (Your code: <=3 Lines)
-        position=np.argwhere(np_weight<thresh)
-        self.mask[position]=0
-#         self.mask = 
-        # Multiply weight by mask (Your code: 1 Line) 
+        # Generate a mask to determine which weights should be pruned (Your code: <=3 Lines)
+        self.mask=np.where(abs(np_weight) > thresh, 1, 0)
+        # Multiply weight by mask (Your code: 1 Line)
         np_weight = self.mask*np_weight
         # Copy back to linear.weight and assign to device (Your code: 1 Line)
-        self.linear.weight.data = np_weight.data.device
+        self.linear.weight.data = torch.FloatTensor(np_weight).to(device)
         # Compute sparsity (Your code: 1 Line)
-        self.sparsity = torch.sum(self.linear.weight.data != 0)/torch.numel(self.linear.weight)
-        # Copy mask to device for faster computation [Your code: 1 Line]
-        self.mask = self.mask.device()
+        self.sparsity = (torch.sum(self.linear.weight.data == 0)/torch.numel(self.linear.weight)).to(device)
+        # Copy mask to device for faster computation (Your code: 1 Line)
+        self.mask = torch.from_numpy(self.mask).to(device)
 
 
     def prune_by_std(self, s=0.25):
@@ -60,16 +60,15 @@ class PruneLinear(nn.Module):
         # Generate the pruning threshold according to 'prune by std'. (Your code: 1 Line) 
         thresh = np.std(flattened_weights)*s
         # Generate a mask to determine which weights should be pruned (Your code: <=3 Lines)
-        position=np.argwhere(np_weight<thresh)
-        self.mask[position]=0
+        self.mask=np.where(abs(np_weight) > thresh, 1, 0)
         # Multiply weight by mask (Your code: 1 Line)
         np_weight = self.mask*np_weight
         # Copy back to linear.weight and assign to device (Your code: 1 Line)
-        self.linear.weight.data = np_weight.data.device
+        self.linear.weight.data = torch.FloatTensor(np_weight).to(device)
         # Compute sparsity (Your code: 1 Line)
-        self.sparsity = torch.sum(self.linear.weight.data != 0)/torch.numel(self.linear.weight)
+        self.sparsity = (torch.sum(self.linear.weight.data == 0)/torch.numel(self.linear.weight)).to(device)
         # Copy mask to device for faster computation (Your code: 1 Line)
-        self.mask =  self.mask.device()
+        self.mask = torch.from_numpy(self.mask).to(device)
 
         pass
 
@@ -105,19 +104,18 @@ class PrunedConv(nn.Module):
         np_weight = self.conv.weight.data.cpu().numpy()
         flattened_weights = np.abs(np_weight.flatten())
         # Generate the pruning threshold according to 'prune by percentage. (Your code: 1 Line) 
-        thresh = np.partition(flattened_weights, len(flattened_weights)*(q/100))[len(flattened_weights)*(q/100)]
+        thresh = np.partition(flattened_weights, int(len(flattened_weights)*(q/100)))[int(len(flattened_weights)*(q/100))]
         # Generate a mask to determine which weights should be pruned (Your code: <=3 Lines)
-        position=np.argwhere(np_weight<thresh)
-        self.mask[position]=0
-#         self.mask = 
-        # Multiply weight by mask (Your code: 1 Line) 
+        # Generate a mask to determine which weights should be pruned (Your code: <=3 Lines)
+        self.mask=np.where(abs(np_weight) > thresh, 1, 0)
+        # Multiply weight by mask (Your code: 1 Line)
         np_weight = self.mask*np_weight
         # Copy back to linear.weight and assign to device (Your code: 1 Line)
-        self.linear.weight.data = np_weight.data.device
+        self.conv.weight.data = torch.FloatTensor(np_weight).to(device)
         # Compute sparsity (Your code: 1 Line)
-        self.sparsity = torch.sum(self.linear.weight.data != 0)/torch.numel(self.linear.weight)
-        # Copy mask to device for faster computation [Your code: 1 Line]
-        self.mask = self.mask.device()
+        self.sparsity = (torch.sum(self.conv.weight.data == 0)/torch.numel(self.conv.weight)).to(device)
+        # Copy mask to device for faster computation (Your code: 1 Line)
+        self.mask =  torch.from_numpy(self.mask).to(device)
 
 
     def prune_by_std(self, s=0.25):
@@ -132,17 +130,17 @@ class PrunedConv(nn.Module):
         # Generate the pruning threshold according to 'prune by std'. (Your code: 1 Line) 
         thresh = np.std(flattened_weights)*s
         # Generate a mask to determine which weights should be pruned (Your code: <=3 Lines)
-        position=np.argwhere(np_weight<thresh)
-        self.mask[position]=0
+        self.mask=np.where(abs(np_weight) > thresh, 1, 0)
         # Multiply weight by mask (Your code: 1 Line)
         np_weight = self.mask*np_weight
         # Copy back to linear.weight and assign to device (Your code: 1 Line)
-        self.linear.weight.data = np_weight.data.device
+        self.conv.weight.data = torch.FloatTensor(np_weight).to(device)
         # Compute sparsity (Your code: 1 Line)
-        self.sparsity = torch.sum(self.linear.weight.data != 0)/torch.numel(self.linear.weight)
+        self.sparsity = (torch.sum(self.conv.weight.data == 0)/torch.numel(self.conv.weight)).to(device)
         # Copy mask to device for faster computation (Your code: 1 Line)
-        self.mask =  self.mask.device()
+        self.mask = torch.from_numpy(self.mask).to(device)
         pass
+
 
 
 
